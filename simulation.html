@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Load Balancing Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .vm-card, .task-card, .log-card, .controls-card, .metrics-card {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .task-card {
+            transition: all 0.5s ease-in-out;
+            position: relative;
+        }
+        .task-fly {
+            animation: fly 0.5s ease-in-out forwards;
+        }
+        @keyframes fly {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                 opacity: 0.8;
+                 transform: translateY(-100px) scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(0) scale(0.5);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Cloud Load Balancing Simulation</h1>
+            <p class="text-md text-gray-600 mt-2">Compare Urgency-aware, Round Robin, and Least Loaded Scheduling</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="controls-card bg-white p-6 rounded-lg mb-8">
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-6">
+                <select id="scheduling-method" class="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 mr-4 focus:outline-none bg-white">
+                    <option value="urgency">Urgency-Aware</option>
+                    <option value="roundrobin">Round Robin</option>
+                    <option value="leastloaded">Least Loaded</option>
+                    <option value="blockchain">Blockchain-Inspired</option>
+                </select>
+                <button id="run-simulation-btn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
+                    Run Simulation
+                </button>
+                <button id="generate-tasks-btn" class="w-full sm:w-auto bg-gray-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors shadow-md">
+                    Generate New Tasks
+                </button>
+                <button id="get-ledger-btn" class="w-full sm:w-auto bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md hidden">
+                    📊 Get Ledger
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Task Count Slider -->
+                <div class="flex flex-col">
+                    <label for="task-count-slider" class="mb-2 font-medium text-gray-700">Number of Tasks: <span id="task-count-value" class="font-bold">10</span></label>
+                    <input id="task-count-slider" type="range" min="5" max="50" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <!-- Simulation Speed Slider -->
+                <div class="flex flex-col">
+                    <label for="sim-speed-slider" class="mb-2 font-medium text-gray-700">Simulation Speed: <span id="sim-speed-value" class="font-bold">100</span>%</label>
+                    <input id="sim-speed-slider" type="range" min="10" max="200" value="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div id="metrics-container" class="metrics-card bg-white p-6 rounded-lg mb-8 hidden">
+             <h2 class="text-2xl font-semibold mb-4 text-center">Performance Metrics</h2>
+             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="text-gray-600">Tasks Completed / Rejected</p>
+                    <p id="tasks-completed-metric" class="text-2xl font-bold text-green-600">0 / 0</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Total Deadline Score <span class="text-xs">(Lower is Better)</span></p>
+                    <p id="deadline-score-metric" class="text-2xl font-bold text-blue-600">0</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Load Imbalance <span class="text-xs">(Lower is Better)</span></p>
+                    <p id="load-imbalance-metric" class="text-2xl font-bold text-purple-600">0.00</p>
+                </div>
+             </div>
+        </div>
+
+        <!-- Task Queue -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-center">Task Queue</h2>
+            <div id="task-queue" class="flex flex-wrap justify-center gap-3 p-4 bg-white rounded-lg min-h-[100px]">
+                <!-- Tasks will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Virtual Machines -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-center">Virtual Machines</h2>
+            <div id="vms-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                <!-- VMs will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Results Log -->
+        <div>
+            <h2 class="text-2xl font-semibold mb-4 text-center">Assignment Log</h2>
+            <div id="log-container" class="log-card bg-white p-4 rounded-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tick</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="log-body" class="bg-white divide-y divide-gray-200">
+                         <!-- Log entries will be added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger Modal -->
+    <div id="ledger-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-900">Blockchain Ledger Data</h3>
+                    <button id="close-ledger-modal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="max-h-96 overflow-y-auto">
+                    <!-- Ledger Summary -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-semibold mb-3 text-blue-600">📊 Ledger Summary</h4>
+                        <div id="ledger-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <!-- Summary data will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- VM Statistics -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-semibold mb-3 text-purple-600">🖥️ VM Statistics</h4>
+                        <div id="vm-statistics" class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VM ID</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assignments</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Success Rate</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Avg Score</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CPU Allocated</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mem Allocated</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vm-stats-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- VM stats will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Recent Transactions -->
+                    <div class="mb-6">
+                        <h4 class="text-md font-semibold mb-3 text-green-600">📝 Recent Transactions</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">TX ID</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VM ID</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Transactions will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Chain Integrity -->
+                    <div class="mb-4">
+                        <h4 class="text-md font-semibold mb-3 text-red-600">🔒 Chain Integrity</h4>
+                        <div id="chain-integrity" class="p-3 rounded-lg">
+                            <!-- Integrity status will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                    <button id="export-ledger-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mr-2">
+                        💾 Export Data
+                    </button>
+                    <button id="close-ledger-modal-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ---- Parameters ----
+        const API_URL = 'http://localhost:8000';
+        const NUM_VMS = 5;
+        const VM_CAPACITY = { cpu: 500, mem: 250, io: 300, bw: 20 };
+
+        // DOM Elements
+        const vmsContainer = document.getElementById('vms-container');
+        const taskQueueContainer = document.getElementById('task-queue');
+        const logBody = document.getElementById('log-body');
+        const runBtn = document.getElementById('run-simulation-btn');
+        const generateTasksBtn = document.getElementById('generate-tasks-btn');
+        const taskCountSlider = document.getElementById('task-count-slider');
+        const taskCountValue = document.getElementById('task-count-value');
+        const simSpeedSlider = document.getElementById('sim-speed-slider');
+        const simSpeedValue = document.getElementById('sim-speed-value');
+        const schedulingMethodSelector = document.getElementById('scheduling-method');
+        const metricsContainer = document.getElementById('metrics-container');
+        const tasksCompletedMetric = document.getElementById('tasks-completed-metric');
+        const deadlineScoreMetric = document.getElementById('deadline-score-metric');
+        const loadImbalanceMetric = document.getElementById('load-imbalance-metric');
+        const getLedgerBtn = document.getElementById('get-ledger-btn');
+        const ledgerModal = document.getElementById('ledger-modal');
+        const closeLedgerModal = document.getElementById('close-ledger-modal');
+        const closeLedgerModalBtn = document.getElementById('close-ledger-modal-btn');
+        const exportLedgerBtn = document.getElementById('export-ledger-btn');
+
+        let vms = [];
+        let tasks = []; // This will now hold the persistent set of tasks for comparison
+        let completedLog = [];
+        let simulationRunning = false;
+        let roundRobinIndex = 0;
+        let needsNewTasks = false;
+
+        // ---- VM Class ----
+        class VM {
+            constructor(id) {
+                this.id = id;
+                this.cpu = 0; this.mem = 0; this.io = 0; this.bw = 0;
+                this.runningTasks = []; // Now stores full task objects
+                this.element = this.createElement();
+            }
+
+            createElement() {
+                const vmElement = document.createElement('div');
+                vmElement.className = 'vm-card bg-white p-4 rounded-lg flex flex-col gap-3';
+                vmElement.id = `vm-${this.id}`;
+                vmElement.innerHTML = `
+                    <h3 class="font-bold text-lg text-center">VM ${this.id}</h3>
+                    <div id="vm-${this.id}-tasks" class="min-h-[60px] bg-gray-50 p-2 rounded-md border border-dashed flex flex-wrap gap-1 items-start content-start"></div>
+                    <div>${this.createProgressBar('cpu', 'CPU', '#3b82f6')}</div>
+                    <div>${this.createProgressBar('mem', 'Mem', '#10b981')}</div>
+                    <div>${this.createProgressBar('io', 'I/O', '#f97316')}</div>
+                    <div>${this.createProgressBar('bw', 'BW', '#8b5cf6')}</div>
+                `;
+                return vmElement;
+            }
+
+            createProgressBar(type, label, color) {
+                return `<div class="flex items-center text-sm"><span class="w-8 font-medium">${label}</span><div class="w-full progress-bar-bg rounded-full h-4 ml-2"><div id="vm-${this.id}-${type}-bar" class="progress-bar h-4 rounded-full" style="width: 0%; background-color: ${color};"></div></div><span id="vm-${this.id}-${type}-text" class="w-20 text-right font-mono">0%</span></div>`;
+            }
+            
+            can_assign(task) {
+                return this.cpu + task.cpu <= VM_CAPACITY.cpu && this.mem + task.mem <= VM_CAPACITY.mem && this.io + task.io <= VM_CAPACITY.io && this.bw + task.bw <= VM_CAPACITY.bw;
+            }
+
+            assign(task) {
+                this.cpu += task.cpu; this.mem += task.mem; this.io += task.io; this.bw += task.bw;
+                this.runningTasks.push(task);
+                this.updateUI();
+            }
+            
+            free_resources(task) {
+                this.cpu -= task.cpu; this.mem -= task.mem; this.io -= task.io; this.bw -= task.bw;
+                this.updateUI();
+            }
+
+            tick() {
+                const newlyCompletedTasks = [];
+                for (const task of this.runningTasks) {
+                    task.duration--;
+                    if (task.duration <= 0) {
+                        newlyCompletedTasks.push(task);
+                    }
+                }
+
+                if (newlyCompletedTasks.length > 0) {
+                    newlyCompletedTasks.forEach(task => this.free_resources(task));
+                    this.runningTasks = this.runningTasks.filter(task => task.duration > 0);
+                }
+                this.updateUI();
+                return newlyCompletedTasks;
+            }
+
+            load_score() {
+                return (this.cpu / VM_CAPACITY.cpu + this.mem / VM_CAPACITY.mem + this.io / VM_CAPACITY.io + this.bw / VM_CAPACITY.bw) / 4;
+            }
+
+            reset() {
+                this.cpu = 0; this.mem = 0; this.io = 0; this.bw = 0;
+                this.runningTasks = [];
+                this.updateUI();
+            }
+
+            updateUI() {
+                ['cpu', 'mem', 'io', 'bw'].forEach(res => {
+                    const percentage = (this[res] / VM_CAPACITY[res]) * 100;
+                    const barElement = document.getElementById(`vm-${this.id}-${res}-bar`);
+                    const textElement = document.getElementById(`vm-${this.id}-${res}-text`);
+                    if (barElement) barElement.style.width = `${percentage}%`;
+                    if (textElement) textElement.textContent = `${Math.round(percentage)}%`;
+                });
+
+                const tasksContainer = document.getElementById(`vm-${this.id}-tasks`);
+                if (tasksContainer) {
+                    tasksContainer.innerHTML = '';
+                    this.runningTasks.forEach(task => {
+                        const taskChip = document.createElement('span');
+                        taskChip.className = 'inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+                        taskChip.textContent = `T${task.id} (${task.duration})`;
+                        tasksContainer.appendChild(taskChip);
+                    });
+                }
+            }
+        }
+
+        // ---- Task Generation and UI ----
+        function createTaskElement(task) {
+            const taskElement = document.createElement('div');
+            taskElement.id = `task-${task.id}`;
+            taskElement.className = 'task-card bg-gray-200 p-3 rounded-lg w-40 text-sm';
+            taskElement.innerHTML = `<div class="font-bold text-center mb-2">Task ${task.id}</div><div class="text-xs grid grid-cols-2 gap-1"><span>CPU: ${task.cpu}</span><span>Mem: ${task.mem}</span><span>I/O: ${task.io}</span><span>BW: ${task.bw}</span><span class="col-span-2 font-semibold text-red-600">Deadline: ${task.deadline}</span><span class="col-span-2 font-semibold text-purple-600">Duration: ${task.duration}</span></div>`;
+            return taskElement;
+        }
+        
+        function generateAndDisplayTasks() {
+            tasks = [];
+            const numTasks = parseInt(taskCountSlider.value, 10);
+            taskQueueContainer.innerHTML = ''; // Clear existing tasks
+            
+            for (let i = 0; i < numTasks; i++) {
+                tasks.push({
+                    id: i,
+                    cpu: Math.floor(Math.random() * 100) + 20,
+                    mem: Math.floor(Math.random() * 50) + 10,
+                    io: Math.floor(Math.random() * 70) + 10,
+                    bw: Math.floor(Math.random() * 5) + 1,
+                    deadline: Math.floor(Math.random() * 10) + 1,
+                    duration: Math.floor(Math.random() * 11) + 5, // This guarantees 5-15 range
+                });
+                // Create and append the visual element for each task
+                const taskElement = createTaskElement(tasks[i]);
+                taskQueueContainer.appendChild(taskElement);
+            }
+            needsNewTasks = false;
+            setControlsEnabled(true);
+        }
+
+        // ---- Scheduling Logic ----
+        async function scheduleTask(task, schedulerType) {
+            try {
+                // Prepare VM states for the backend
+                const vmStates = vms.map(vm => ({
+                    id: vm.id,
+                    cpu: vm.cpu,
+                    mem: vm.mem,
+                    io: vm.io,
+                    bw: vm.bw,
+                    tasks: vm.runningTasks.map(t => t.id)
+                }));
+
+                const response = await fetch(`${API_URL}/schedule`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        task: task,
+                        scheduler_type: schedulerType,
+                        vm_states: vmStates
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const selectedVm = vms.find(vm => vm.id === result.vm_id);
+                    return { bestVm: selectedVm, score: result.score };
+                } else {
+                    return { bestVm: null, score: Infinity };
+                }
+            } catch (error) {
+                console.error('Error scheduling task:', error);
+                return { bestVm: null, score: Infinity };
+            }
+        }
+
+        // ---- Simulation Control ----
+        function resetSimulationState() {
+            logBody.innerHTML = '';
+            completedLog = [];
+            roundRobinIndex = 0;
+            metricsContainer.classList.add('hidden');
+            vms.forEach(vm => vm.reset());
+            
+            taskQueueContainer.innerHTML = '';
+            tasks.forEach(task => taskQueueContainer.appendChild(createTaskElement(task)));
+        }
+        
+        async function runSimulation() {
+            if (simulationRunning) return;
+            
+            resetSimulationState();
+            
+            simulationRunning = true;
+            setControlsEnabled(false);
+
+            const speed = 100 / parseInt(simSpeedSlider.value, 10);
+            const tickDelay = 250 * speed;
+
+            const taskQueue = [...tasks];
+            let rejectedTasks = [];
+            let tick = 0;
+            
+            const method = schedulingMethodSelector.value;
+
+            while (taskQueue.length > 0 || vms.some(vm => vm.runningTasks.length > 0)) {
+                tick++;
+
+                // 1. Tick all VMs to update task durations and free resources
+                vms.forEach(vm => {
+                    const finishedTasks = vm.tick();
+                    finishedTasks.forEach(task => {
+                        completedLog.push(task);
+                        addLogEntry(tick, 'COMPLETED', `Task ${task.id} finished on VM ${vm.id}.`);
+                    });
+                });
+
+                // 2. Try to assign the next task from the queue
+                if (taskQueue.length > 0) {
+                    const currentTask = taskQueue[0];
+                    const taskElement = document.getElementById(`task-${currentTask.id}`);
+                    if (taskElement) {
+                        taskElement.style.borderColor = 'blue';
+                        taskElement.style.borderWidth = '2px';
+                    }
+
+                    const { bestVm, score } = await scheduleTask(currentTask, method);
+                    
+                    if (bestVm) {
+                        taskQueue.shift(); // Remove from queue
+                        await animateTaskAssignment(currentTask, bestVm, 200 * speed);
+                        bestVm.assign(currentTask);
+                        addLogEntry(tick, 'ASSIGNED', `Task ${currentTask.id} to VM ${bestVm.id} (Score: ${score.toFixed(2)})`);
+                    } else {
+                        // Cannot assign now, could be rejected if it's been waiting too long
+                        // For simplicity, we'll just keep it in the queue for the next tick
+                        addLogEntry(tick, 'WAITING', `Task ${currentTask.id} could not be assigned. No capable VM.`);
+                    }
+                    if (taskElement) taskElement.style.borderColor = 'transparent';
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, tickDelay));
+                if (tick > 200) { // Failsafe to prevent infinite loops
+                    rejectedTasks = [...taskQueue];
+                    addLogEntry(tick, 'TIMEOUT', `Simulation timed out. ${rejectedTasks.length} tasks remaining.`);
+                    break;
+                }
+            }
+            onSimulationEnd(rejectedTasks);
+        }
+
+        async function animateTaskAssignment(task, vm, animationDelay) {
+            const vmElement = document.getElementById(`vm-${vm.id}`);
+            const taskElement = document.getElementById(`task-${task.id}`);
+            if (!taskElement || !vmElement) return;
+
+            const taskRect = taskElement.getBoundingClientRect();
+            const vmRect = vmElement.getBoundingClientRect();
+            const clone = taskElement.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = `${taskRect.left}px`;
+            clone.style.top = `${taskRect.top}px`;
+            clone.style.width = `${taskRect.width}px`;
+            clone.style.height = `${taskRect.height}px`;
+            clone.style.zIndex = '1000';
+            document.body.appendChild(clone);
+            taskElement.style.opacity = '0.3';
+
+            const transitionDuration = animationDelay / 1000;
+            clone.style.transition = `all ${transitionDuration}s cubic-bezier(0.5, -0.5, 0.5, 1.5)`;
+            await new Promise(r => setTimeout(r, 10));
+            clone.style.left = `${vmRect.left + vmRect.width / 2 - taskRect.width / 2}px`;
+            clone.style.top = `${vmRect.top + 30}px`;
+            clone.style.transform = 'scale(0.5)';
+            clone.style.opacity = '0';
+
+            await new Promise(resolve => setTimeout(resolve, animationDelay));
+            if(clone.parentNode) document.body.removeChild(clone);
+            taskElement.remove();
+        }
+
+        function addLogEntry(tick, event, details) {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${tick}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${event}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${details}</td>`;
+            logBody.prepend(row);
+        }
+        
+        function calculateAndDisplayMetrics(rejectedTasks) {
+            // Tasks completion metrics
+            const completedCount = completedLog.length;
+            const rejectedCount = rejectedTasks.length;
+            const totalTasks = completedCount + rejectedCount;
+            tasksCompletedMetric.textContent = `${completedCount} / ${rejectedCount} (${((completedCount/totalTasks)*100).toFixed(1)}%)`;
+
+            // Deadline score - weighted by completion rate
+            const totalDeadlineScore = completedLog.reduce((sum, log) => sum + log.deadline, 0);
+            const weightedDeadlineScore = totalDeadlineScore * (completedCount / totalTasks);
+            deadlineScoreMetric.textContent = weightedDeadlineScore.toFixed(2);
+
+            // Load imbalance calculation
+            const vmLoads = vms.map(vm => ({
+                cpu: vm.cpu / VM_CAPACITY.cpu,
+                mem: vm.mem / VM_CAPACITY.mem,
+                io: vm.io / VM_CAPACITY.io,
+                bw: vm.bw / VM_CAPACITY.bw,
+                total: vm.load_score()
+            }));
+            
+            // Calculate average load for each resource type
+            const avgLoads = {
+                cpu: vmLoads.reduce((sum, load) => sum + load.cpu, 0) / vmLoads.length,
+                mem: vmLoads.reduce((sum, load) => sum + load.mem, 0) / vmLoads.length,
+                io: vmLoads.reduce((sum, load) => sum + load.io, 0) / vmLoads.length,
+                bw: vmLoads.reduce((sum, load) => sum + load.bw, 0) / vmLoads.length
+            };
+            
+            // Calculate variance for each resource type
+            const variances = {
+                cpu: vmLoads.reduce((sum, load) => sum + Math.pow(load.cpu - avgLoads.cpu, 2), 0) / vmLoads.length,
+                mem: vmLoads.reduce((sum, load) => sum + Math.pow(load.mem - avgLoads.mem, 2), 0) / vmLoads.length,
+                io: vmLoads.reduce((sum, load) => sum + Math.pow(load.io - avgLoads.io, 2), 0) / vmLoads.length,
+                bw: vmLoads.reduce((sum, load) => sum + Math.pow(load.bw - avgLoads.bw, 2), 0) / vmLoads.length
+            };
+            
+            // Calculate combined standard deviation with weighted contributions
+            const resourceWeights = {
+                cpu: 0.4,  // CPU typically most important
+                mem: 0.3,  // Memory second most important
+                io: 0.2,   // I/O third
+                bw: 0.1    // Bandwidth least critical
+            };
+            
+            const weightedStdDev = Math.sqrt(
+                resourceWeights.cpu * Math.sqrt(variances.cpu) +
+                resourceWeights.mem * Math.sqrt(variances.mem) +
+                resourceWeights.io * Math.sqrt(variances.io) +
+                resourceWeights.bw * Math.sqrt(variances.bw)
+            );
+            
+            loadImbalanceMetric.textContent = weightedStdDev.toFixed(3);
+
+            metricsContainer.classList.remove('hidden');
+        }
+
+        function onSimulationEnd(rejectedTasks) {
+            calculateAndDisplayMetrics(rejectedTasks);
+            simulationRunning = false;
+            needsNewTasks = true;
+            setControlsEnabled(true);
+        }
+
+        function setControlsEnabled(isEnabled) {
+            runBtn.disabled = !isEnabled || needsNewTasks;
+            generateTasksBtn.disabled = !isEnabled;
+            taskCountSlider.disabled = !isEnabled;
+            schedulingMethodSelector.disabled = !isEnabled;
+            getLedgerBtn.disabled = !isEnabled;
+            
+            [generateTasksBtn, getLedgerBtn].forEach(btn => {
+                if (isEnabled) btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                else btn.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+
+            if (isEnabled && !needsNewTasks) {
+                runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                runBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        // ---- Event Listeners ----
+        taskCountSlider.addEventListener('input', (e) => {
+            taskCountValue.textContent = e.target.value;
+            if (!simulationRunning) generateAndDisplayTasks();
+        });
+
+        simSpeedSlider.addEventListener('input', (e) => {
+            simSpeedValue.textContent = e.target.value;
+        });
+
+        runBtn.addEventListener('click', runSimulation);
+
+        generateTasksBtn.addEventListener('click', () => {
+             if (!simulationRunning) generateAndDisplayTasks();
+        });
+
+        // Show/hide ledger button based on scheduler selection
+        schedulingMethodSelector.addEventListener('change', (e) => {
+            if (e.target.value === 'blockchain') {
+                getLedgerBtn.classList.remove('hidden');
+            } else {
+                getLedgerBtn.classList.add('hidden');
+            }
+        });
+
+        // Ledger button click handler
+        getLedgerBtn.addEventListener('click', async () => {
+            await showLedgerModal();
+        });
+
+        // Modal close handlers
+        closeLedgerModal.addEventListener('click', () => {
+            ledgerModal.classList.add('hidden');
+        });
+
+        closeLedgerModalBtn.addEventListener('click', () => {
+            ledgerModal.classList.add('hidden');
+        });
+
+        // Export ledger data
+        exportLedgerBtn.addEventListener('click', () => {
+            exportLedgerData();
+        });
+
+        // Close modal when clicking outside
+        ledgerModal.addEventListener('click', (e) => {
+            if (e.target === ledgerModal) {
+                ledgerModal.classList.add('hidden');
+            }
+        });
+
+        // Ledger functionality
+        async function showLedgerModal() {
+            try {
+                const response = await fetch(`${API_URL}/ledger/blockchain`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const ledgerData = await response.json();
+                populateLedgerModal(ledgerData);
+                ledgerModal.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error fetching ledger data:', error);
+                alert('Failed to fetch ledger data. Make sure the backend is running and you have used the blockchain scheduler.');
+            }
+        }
+
+        function populateLedgerModal(data) {
+            // Populate summary
+            const summaryContainer = document.getElementById('ledger-summary');
+            summaryContainer.innerHTML = `
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <div class="font-semibold text-blue-800">Total Blocks</div>
+                    <div class="text-2xl font-bold text-blue-600">${data.summary.total_blocks}</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg">
+                    <div class="font-semibold text-green-800">Total Transactions</div>
+                    <div class="text-2xl font-bold text-green-600">${data.summary.total_transactions}</div>
+                </div>
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <div class="font-semibold text-purple-800">Success Rate</div>
+                    <div class="text-2xl font-bold text-purple-600">${(data.summary.success_rate * 100).toFixed(1)}%</div>
+                </div>
+                <div class="bg-yellow-50 p-3 rounded-lg">
+                    <div class="font-semibold text-yellow-800">Pending TXs</div>
+                    <div class="text-2xl font-bold text-yellow-600">${data.summary.pending_transactions}</div>
+                </div>
+            `;
+
+            // Populate VM statistics
+            const vmStatsBody = document.getElementById('vm-stats-body');
+            vmStatsBody.innerHTML = '';
+            Object.entries(data.vm_stats).forEach(([vmId, stats]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-2 font-medium text-gray-900">VM ${vmId}</td>
+                    <td class="px-4 py-2 text-gray-500">${stats.total_assignments}</td>
+                    <td class="px-4 py-2 text-gray-500">${(stats.success_rate * 100).toFixed(1)}%</td>
+                    <td class="px-4 py-2 text-gray-500">${stats.average_score.toFixed(4)}</td>
+                    <td class="px-4 py-2 text-gray-500">${stats.total_cpu_allocated}</td>
+                    <td class="px-4 py-2 text-gray-500">${stats.total_mem_allocated}</td>
+                `;
+                vmStatsBody.appendChild(row);
+            });
+
+            // Populate recent transactions
+            const transactionsBody = document.getElementById('transactions-body');
+            transactionsBody.innerHTML = '';
+            data.recent_transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                const statusClass = tx.status === 'assigned' ? 'text-green-600' : 'text-red-600';
+                const statusIcon = tx.status === 'assigned' ? '✓' : '✗';
+                const timestamp = new Date(tx.timestamp * 1000).toLocaleTimeString();
+                
+                row.innerHTML = `
+                    <td class="px-4 py-2 font-mono text-xs text-gray-500">${tx.transaction_id.substring(0, 12)}...</td>
+                    <td class="px-4 py-2 text-gray-900">${tx.task_id}</td>
+                    <td class="px-4 py-2 text-gray-900">VM ${tx.vm_id}</td>
+                    <td class="px-4 py-2 ${statusClass} font-semibold">${statusIcon} ${tx.status}</td>
+                    <td class="px-4 py-2 text-gray-500">${tx.score.toFixed(4)}</td>
+                    <td class="px-4 py-2 text-gray-500 text-xs">${timestamp}</td>
+                `;
+                transactionsBody.appendChild(row);
+            });
+
+            // Populate chain integrity
+            const chainIntegrityContainer = document.getElementById('chain-integrity');
+            const isValid = data.summary.chain_integrity;
+            chainIntegrityContainer.innerHTML = `
+                <div class="flex items-center ${isValid ? 'text-green-600' : 'text-red-600'}">
+                    <span class="text-2xl mr-2">${isValid ? '✅' : '❌'}</span>
+                    <div>
+                        <div class="font-semibold">${isValid ? 'Chain Integrity: VALID' : 'Chain Integrity: INVALID'}</div>
+                        <div class="text-sm">Latest Block Hash: ${data.summary.latest_block_hash ? data.summary.latest_block_hash.substring(0, 16) + '...' : 'None'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function exportLedgerData() {
+            // This would export the current ledger data
+            fetch(`${API_URL}/ledger/blockchain`)
+                .then(response => response.json())
+                .then(data => {
+                    const dataStr = JSON.stringify(data.export_data, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `blockchain_ledger_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('Error exporting ledger data:', error);
+                    alert('Failed to export ledger data.');
+                });
+        }
+        
+        window.onload = () => {
+            // Create VMs once on page load
+            for (let i = 0; i < NUM_VMS; i++) {
+                vms.push(new VM(i));
+                vmsContainer.appendChild(vms[i].element);
+            }
+            generateAndDisplayTasks();
+            needsNewTasks = true;
+        };
+
+    </script>
+</body>
+</html>
